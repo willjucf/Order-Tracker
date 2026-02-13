@@ -1,0 +1,35 @@
+/* Blue Theme (matches original Python app) */
+[data-theme="blue"] {
+  --bg-primary: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-header: #0f3460;
+  --bg-input: #1a1a2e;
+  --bg-hover: #1e2d4f;
+  --bg-primary-rgb: 26, 26, 46;
+  --bg-card-rgb: 22, 33, 62;
+  --bg-header-rgb: 15, 52, 96;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+
+  --border-color: #0f3460;
+
+  --accent: #e94560;
+  --accent-hover: #c73e54;
+  --accent-light: #533483;
+
+  --success: #00bf63;
+  --danger: #ff4757;
+  --cyan: #00d2d3;
+  --blue: #3b82f6;
+  --yellow: #f59e0b;
+  --purple: #8b5cf6;
+
+  --stat-orders: #3b82f6;
+  --stat-confirmed: #8b5cf6;
+  --stat-shipped: #00d2d3;
+  --stat-delivered: #00bf63;
+  --stat-cancelled: #ff4757;
+  --stat-spent: #f59e0b;
+}

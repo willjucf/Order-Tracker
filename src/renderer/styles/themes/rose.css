@@ -1,0 +1,35 @@
+/* Rose Theme */
+[data-theme="rose"] {
+  --bg-primary: #1a0e14;
+  --bg-card: #2a1522;
+  --bg-header: #3d1e32;
+  --bg-input: #1e1018;
+  --bg-hover: #4a253c;
+  --bg-primary-rgb: 26, 14, 20;
+  --bg-card-rgb: 42, 21, 34;
+  --bg-header-rgb: 61, 30, 50;
+
+  --text-primary: #ffffff;
+  --text-secondary: #b8a0b0;
+  --text-muted: #806677;
+
+  --border-color: #4a253c;
+
+  --accent: #f43f5e;
+  --accent-hover: #e11d48;
+  --accent-light: #881337;
+
+  --success: #00bf63;
+  --danger: #ff4757;
+  --cyan: #00d2d3;
+  --blue: #3b82f6;
+  --yellow: #f59e0b;
+  --purple: #8b5cf6;
+
+  --stat-orders: #3b82f6;
+  --stat-confirmed: #8b5cf6;
+  --stat-shipped: #00d2d3;
+  --stat-delivered: #00bf63;
+  --stat-cancelled: #ff4757;
+  --stat-spent: #f59e0b;
+}

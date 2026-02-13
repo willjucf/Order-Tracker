@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.pyo
+
+# Build output
+dist/
+dist-electron/
+dist-types/
+release/
+backend-dist/
+backend/dist/
+backend/build/
+backend/*.spec
+*.exe
+
+# Environment
+.env
+.env.local
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Project-specific ignores
+CLAUDE.md
+DOCUMENTATION.txt
+settings.json

@@ -1,0 +1,35 @@
+/* Purple Theme */
+[data-theme="purple"] {
+  --bg-primary: #120e1a;
+  --bg-card: #1e1730;
+  --bg-header: #2d2248;
+  --bg-input: #160f1e;
+  --bg-hover: #362a52;
+  --bg-primary-rgb: 18, 14, 26;
+  --bg-card-rgb: 30, 23, 48;
+  --bg-header-rgb: 45, 34, 72;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a8a0b8;
+  --text-muted: #6e6480;
+
+  --border-color: #362a52;
+
+  --accent: #a855f7;
+  --accent-hover: #9333ea;
+  --accent-light: #581c87;
+
+  --success: #00bf63;
+  --danger: #ff4757;
+  --cyan: #00d2d3;
+  --blue: #3b82f6;
+  --yellow: #f59e0b;
+  --purple: #a855f7;
+
+  --stat-orders: #3b82f6;
+  --stat-confirmed: #a855f7;
+  --stat-shipped: #00d2d3;
+  --stat-delivered: #00bf63;
+  --stat-cancelled: #ff4757;
+  --stat-spent: #f59e0b;
+}

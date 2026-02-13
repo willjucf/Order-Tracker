@@ -1,0 +1,35 @@
+/* Nord Theme */
+[data-theme="nord"] {
+  --bg-primary: #2e3440;
+  --bg-card: #3b4252;
+  --bg-header: #434c5e;
+  --bg-input: #2e3440;
+  --bg-hover: #4c566a;
+  --bg-primary-rgb: 46, 52, 64;
+  --bg-card-rgb: 59, 66, 82;
+  --bg-header-rgb: 67, 76, 94;
+
+  --text-primary: #eceff4;
+  --text-secondary: #a0aab8;
+  --text-muted: #6c7a8d;
+
+  --border-color: #4c566a;
+
+  --accent: #88c0d0;
+  --accent-hover: #81a1c1;
+  --accent-light: #5e81ac;
+
+  --success: #a3be8c;
+  --danger: #bf616a;
+  --cyan: #8fbcbb;
+  --blue: #81a1c1;
+  --yellow: #ebcb8b;
+  --purple: #b48ead;
+
+  --stat-orders: #81a1c1;
+  --stat-confirmed: #b48ead;
+  --stat-shipped: #8fbcbb;
+  --stat-delivered: #a3be8c;
+  --stat-cancelled: #bf616a;
+  --stat-spent: #ebcb8b;
+}
