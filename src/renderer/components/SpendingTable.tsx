@@ -109,6 +109,32 @@ export default function SpendingTable({ items }: SpendingTableProps) {
                 {item.stick_rate.toFixed(0)}%
               </div>
             </div>
+
+            {/* Stick rate bar */}
+            <div style={{
+              width: '3px',
+              height: '28px',
+              backgroundColor: 'var(--bg-primary)',
+              borderRadius: '2px',
+              overflow: 'hidden',
+              alignSelf: 'center',
+              flexShrink: 0,
+              marginLeft: '-8px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+            }}>
+              <div
+                className="stick-bar-fill"
+                style={{
+                  width: '100%',
+                  height: `${item.stick_rate}%`,
+                  backgroundColor: getStickColor(item.stick_rate),
+                  borderRadius: '2px',
+                  transition: 'height 0.4s ease',
+                }}
+              />
+            </div>
           </div>
         ))}
       </div>

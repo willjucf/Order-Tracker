@@ -16,12 +16,19 @@ interface TabViewProps {
   onBackgroundChange: (path: string | null) => void
   username: string
   onUsernameChange: (name: string) => void
+  onRegisterCapture?: (fn: () => void) => void
+  onTabChange?: (tab: string) => void
 }
 
 type Tab = 'results' | 'history' | 'customize'
 
-export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgroundChange, username, onUsernameChange }: TabViewProps) {
+export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgroundChange, username, onUsernameChange, onRegisterCapture, onTabChange }: TabViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>('results')
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab)
+    onTabChange?.(tab)
+  }
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'results', label: 'Results' },
@@ -34,7 +41,30 @@ export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgr
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
+      height: '100%',
     }}>
+      {/* App header row: title left, username right */}
+      <div className="panel-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        borderRadius: '16px 16px 0 0',
+      }}>
+        <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
+          Order Tracker by Willet v1.1
+        </span>
+        {username && (
+          <span className="username-display" style={{
+            fontSize: '18px',
+            color: 'var(--text-primary)',
+            fontWeight: '700',
+          }}>
+            {username}
+          </span>
+        )}
+      </div>
+
       {/* Tab bar */}
       <div style={{
         display: 'flex',
@@ -46,7 +76,7 @@ export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgr
           <button
             key={tab.key}
             className="tab-label"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             style={{
               background: 'transparent',
               color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-secondary)',
@@ -61,22 +91,11 @@ export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgr
             {tab.label}
           </button>
         ))}
-        {username && (
-          <span className="username-display" style={{
-            marginLeft: 'auto',
-            fontSize: '18px',
-            color: 'var(--text-primary)',
-            fontWeight: '700',
-            paddingRight: '12px',
-          }}>
-            {username}
-          </span>
-        )}
       </div>
 
       {/* Tab content */}
       <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-        {activeTab === 'results' && <ResultsTab refreshKey={refreshKey} />}
+        {activeTab === 'results' && <ResultsTab refreshKey={refreshKey} username={username} backgroundPath={backgroundPath} onRegisterCapture={onRegisterCapture} />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'customize' && (
           <ThemesTab

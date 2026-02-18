@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from './hooks/useTheme'
 import { api } from './hooks/useApi'
 import Sidebar from './components/Sidebar'
@@ -14,6 +14,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [backgroundPath, setBackgroundPath] = useState<string | null>(null)
   const [username, setUsername] = useState('')
+  const [activeTab, setActiveTab] = useState('results')
 
   // Load settings and background on mount
   useEffect(() => {
@@ -29,9 +30,6 @@ export default function App() {
       .then(data => {
         if (data.path) {
           setBackgroundPath(data.path)
-          document.body.classList.add('has-background')
-          const filename = data.path.split(/[\\/]/).pop()
-          document.body.style.backgroundImage = `url(http://127.0.0.1:8420/api/backgrounds/${filename})`
         }
       })
       .catch(() => {})
@@ -61,15 +59,17 @@ export default function App() {
 
   const handleBackgroundChange = useCallback((path: string | null) => {
     setBackgroundPath(path)
-    if (path) {
-      document.body.classList.add('has-background')
-      const filename = path.split(/[\\/]/).pop()
-      document.body.style.backgroundImage = `url(http://127.0.0.1:8420/api/backgrounds/${filename})`
-    } else {
-      document.body.classList.remove('has-background')
-      document.body.style.backgroundImage = ''
-    }
   }, [])
+
+  const captureRef = useRef<(() => void) | null>(null)
+  const handleRegisterCapture = useCallback((fn: () => void) => {
+    captureRef.current = fn
+  }, [])
+  const handleSnapshot = useCallback(() => {
+    captureRef.current?.()
+  }, [])
+
+  const bgFilename = backgroundPath ? backgroundPath.split(/[\\/]/).pop() : null
 
   return (
     <div style={{
@@ -92,15 +92,31 @@ export default function App() {
           onConnect={handleConnect}
           onDisconnect={handleDisconnect}
           onScanComplete={handleScanComplete}
+          onSnapshot={handleSnapshot}
+          showSnapshot={activeTab === 'results'}
         />
-        <TabView
-          refreshKey={refreshKey}
-          themeCtx={themeCtx}
-          backgroundPath={backgroundPath}
-          onBackgroundChange={handleBackgroundChange}
-          username={username}
-          onUsernameChange={handleUsernameChange}
-        />
+        <div
+          className={`right-panel${backgroundPath ? ' has-background' : ''}`}
+          style={bgFilename ? {
+            backgroundImage: `url(http://127.0.0.1:8420/api/backgrounds/${bgFilename})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            borderRadius: '16px',
+            overflow: 'hidden',
+          } : { overflow: 'hidden' }}
+        >
+          <TabView
+            refreshKey={refreshKey}
+            themeCtx={themeCtx}
+            backgroundPath={backgroundPath}
+            onBackgroundChange={handleBackgroundChange}
+            username={username}
+            onUsernameChange={handleUsernameChange}
+            onRegisterCapture={handleRegisterCapture}
+            onTabChange={setActiveTab}
+          />
+        </div>
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ import type { Order } from '../types'
 
 interface OrdersSectionProps {
   orders: Order[]
+  forceExpanded?: boolean
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -12,22 +13,37 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'var(--stat-cancelled)',
 }
 
-export default function OrdersSection({ orders }: OrdersSectionProps) {
+export default function OrdersSection({ orders, forceExpanded }: OrdersSectionProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showOrderNumbers, setShowOrderNumbers] = useState(true)
 
-  const displayOrders = expanded ? orders : orders.slice(0, 3)
+  const displayOrders = (expanded || forceExpanded) ? orders : orders.slice(0, 3)
 
   return (
     <div>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: '12px',
       }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-          Orders ({orders.length})
-        </h3>
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+            Orders ({orders.length})
+          </h3>
+          <button
+            onClick={() => setShowOrderNumbers(!showOrderNumbers)}
+            style={{
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              fontSize: '12px',
+              padding: '2px 0',
+              fontWeight: 'normal',
+            }}
+          >
+            {showOrderNumbers ? 'Hide #' : 'Show #'}
+          </button>
+        </div>
         {orders.length > 3 && (
           <button
             onClick={() => setExpanded(!expanded)}
@@ -61,7 +77,7 @@ export default function OrdersSection({ orders }: OrdersSectionProps) {
             {/* Order number */}
             <div style={{ minWidth: '160px' }}>
               <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                #{order.orderNumber}
+                {showOrderNumbers ? `#${order.orderNumber}` : '#••••••••••••'}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                 {order.orderDate || 'No date'}

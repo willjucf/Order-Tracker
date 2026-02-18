@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import http from 'http'
@@ -95,6 +95,9 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Remove the native menu bar (File, Edit, View, etc.)
+  Menu.setApplicationMenu(null)
+
   // Start backend
   backendProcess = startBackend()
 

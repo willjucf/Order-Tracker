@@ -29,13 +29,6 @@ body {
   flex-direction: column;
 }
 
-/* Custom background image support */
-body.has-background {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
@@ -60,7 +53,7 @@ body.has-background {
   border-radius: 16px;
 }
 
-body.has-background .panel {
+.right-panel.has-background .panel {
   background-color: rgba(var(--bg-card-rgb), var(--panel-opacity, 0.85));
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
@@ -71,7 +64,7 @@ body.has-background .panel {
   padding: 10px 16px;
 }
 
-body.has-background .panel-header {
+.right-panel.has-background .panel-header {
   background-color: rgba(var(--bg-header-rgb), var(--panel-opacity, 0.85));
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
@@ -81,7 +74,7 @@ body.has-background .panel-header {
   background-color: var(--bg-header);
 }
 
-body.has-background .transparent-element {
+.right-panel.has-background .transparent-element {
   background-color: rgba(var(--bg-header-rgb), var(--panel-opacity, 0.85));
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
@@ -98,8 +91,8 @@ input, select {
   transition: border-color 0.2s;
 }
 
-body.has-background input,
-body.has-background select {
+.right-panel.has-background input,
+.right-panel.has-background select {
   background-color: rgba(var(--bg-primary-rgb), var(--panel-opacity, 0.85));
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
@@ -133,7 +126,7 @@ button:disabled {
   color: #ffffff;
 }
 
-body.has-background .btn-primary {
+.right-panel.has-background .btn-primary {
   background-color: rgba(233, 69, 96, var(--panel-opacity, 0.85));
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
@@ -219,8 +212,18 @@ body.has-background .btn-primary {
   animation: slideUp 0.3s ease;
 }
 
+/* Stick rate bar scales with opacity but stays more visible than boxes */
+.right-panel.has-background .stick-bar-fill {
+  opacity: calc(var(--panel-opacity, 0.85) * 0.4 + 0.6);
+}
+
+/* All text in the results area stays readable at any opacity level */
+.right-panel.has-background .transparent-element * {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95), 0 0 14px rgba(0, 0, 0, 0.7);
+}
+
 /* Tab labels stay more readable when panel opacity is low */
-body.has-background .tab-label {
+.right-panel.has-background .tab-label {
   opacity: 1 !important;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 12px rgba(0, 0, 0, 0.3);
 }

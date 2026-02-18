@@ -193,12 +193,25 @@ export default function ThemesTab({ themeCtx, backgroundPath, onBackgroundChange
         </div>
 
         {backgroundPath && (
-          <div style={{
-            fontSize: '12px',
-            color: 'var(--text-secondary)',
-            marginTop: '8px',
-          }}>
-            Background active
+          <div style={{ marginTop: '10px' }}>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              marginBottom: '6px',
+            }}>
+              Background active
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--text-secondary)',
+              backgroundColor: 'var(--bg-header)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              lineHeight: '1.5',
+            }}>
+              💡 <strong>Tip:</strong> For best results, resize the app window to match your image's aspect ratio. The image scales to fill the panel and will crop if the proportions don't match.
+            </div>
           </div>
         )}
       </div>
