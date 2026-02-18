@@ -24,6 +24,8 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
   const pendingBlobUrlRef = useRef<string | null>(null)
   // Holds the image's natural width when capturing with a background
   const captureWidthRef = useRef<number>(1400)
+  // Stores a data URL of the bg image so html2canvas never needs to re-fetch it
+  const bgDataUrlRef = useRef<string | null>(null)
 
   const bgFilename = backgroundPath ? backgroundPath.split(/[\\/]/).pop() : null
   const bgUrl = bgFilename ? `http://127.0.0.1:8420/api/backgrounds/${bgFilename}` : null
@@ -37,18 +39,30 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
   const handleCapture = useCallback(async () => {
     if (!contentRef.current || capturing) return
 
-    // If a background is set, load it to get its natural pixel dimensions
+    // If a background is set, load it to get dimensions + convert to data URL
+    // so html2canvas never needs to re-fetch it over the network
     if (bgUrl) {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       await new Promise<void>(resolve => {
         img.onload = () => resolve()
-        img.onerror = () => resolve() // fallback on error
+        img.onerror = () => resolve()
         img.src = bgUrl
       })
-      captureWidthRef.current = img.naturalWidth || 1400
+      captureWidthRef.current = 1400
+      // Draw to offscreen canvas to get a reliable data URL
+      try {
+        const offscreen = document.createElement('canvas')
+        offscreen.width = img.naturalWidth
+        offscreen.height = img.naturalHeight
+        offscreen.getContext('2d')?.drawImage(img, 0, 0)
+        bgDataUrlRef.current = offscreen.toDataURL('image/jpeg', 0.9)
+      } catch {
+        bgDataUrlRef.current = bgUrl // fallback to URL if canvas conversion fails
+      }
     } else {
       captureWidthRef.current = 1400
+      bgDataUrlRef.current = null
     }
 
     setCapturing(true)
@@ -60,7 +74,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: bgUrl
+        backgroundColor: bgDataUrlRef.current
           ? null
           : (getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#1e1e1e'),
         logging: false,
@@ -115,11 +129,11 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
         display: 'flex',
         flexDirection: 'column',
         gap: '24px',
-        padding: bgUrl ? '50px' : '30px 60px 320px',
+        padding: '30px 60px 320px',
         width: `${captureWidthRef.current}px`,
-        ...(bgUrl
+        ...(bgDataUrlRef.current
           ? {
-              backgroundImage: `url(${bgUrl})`,
+              backgroundImage: `url(${bgDataUrlRef.current})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
@@ -137,16 +151,15 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
 
       <div
         ref={contentRef}
-        className={capturing && bgUrl ? 'right-panel has-background' : undefined}
+        className={capturing && bgDataUrlRef.current ? 'right-panel has-background' : undefined}
         style={captureStyle}
       >
         {capturing && (
-          <div style={{
+          <div className="transparent-element" style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '14px 20px',
-            backgroundColor: 'var(--bg-header)',
             borderRadius: '12px',
           }}>
             <span style={{ fontSize: '17px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
