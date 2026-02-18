@@ -3,6 +3,7 @@ import ResultsTab from './ResultsTab'
 import HistoryTab from './HistoryTab'
 import ThemesTab from './ThemesTab'
 import type { ThemeName } from '../hooks/useTheme'
+import { APP_VERSION } from '../version'
 
 interface TabViewProps {
   refreshKey: number
@@ -52,7 +53,7 @@ export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgr
         borderRadius: '16px 16px 0 0',
       }}>
         <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
-          Order Tracker by Willet v1.1
+          Order Tracker by Willet v{APP_VERSION}
         </span>
         {username && (
           <span className="username-display" style={{

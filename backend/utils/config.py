@@ -4,11 +4,11 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Order Tracker"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.1"
 APP_FULL_NAME = f"{APP_NAME} by Willet"
 
 # GitHub repo for updates
-GITHUB_REPO = "willjucf/Order-Checker"
+GITHUB_REPO = "willjucf/Order-Tracker"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 
 # Get the app data directory for storing database and settings

@@ -5,6 +5,7 @@ import StatsBar from './StatsBar'
 import SpendingTable from './SpendingTable'
 import OrdersSection from './OrdersSection'
 import type { Stats, SpendingItem, Order } from '../types'
+import { APP_VERSION } from '../version'
 
 interface ResultsTabProps {
   refreshKey: number
@@ -149,7 +150,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
             borderRadius: '12px',
           }}>
             <span style={{ fontSize: '17px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-              Order Tracker by Willet v1.1
+              Order Tracker by Willet v{APP_VERSION}
             </span>
             {username && (
               <span style={{ fontSize: '19px', fontWeight: '700', color: 'var(--text-primary)' }}>
