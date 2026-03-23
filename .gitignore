@@ -23,6 +23,7 @@ backend/*.spec
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
