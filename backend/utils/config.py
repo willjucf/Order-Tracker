@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Order Tracker"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
 APP_FULL_NAME = f"{APP_NAME} by Willet"
 
 # GitHub repo for updates
@@ -82,8 +82,8 @@ STORE_CONFIGS = {
         "enabled": False
     },
     "Target": {
-        "sender_filter": "target.com",
-        "enabled": False
+        "sender_filter": "target",
+        "enabled": True
     },
     "Best Buy": {
         "sender_filter": "bestbuy.com",

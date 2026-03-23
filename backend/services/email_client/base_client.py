@@ -52,26 +52,47 @@ class BaseEmailClient(ABC):
         """Fetch a single email by UID."""
         pass
 
+    def fetch_emails_batch(
+        self,
+        uids: List[str],
+        batch_size: int = 50,
+        progress_callback=None,
+        subject_filter=None,
+    ) -> List[RawEmail]:
+        """
+        Fetch multiple emails by UID list.
+        Default implementation fetches one at a time; subclasses should override for batching.
+        subject_filter(subject: str) -> bool: optional callable to skip irrelevant emails.
+        """
+        results = []
+        total = len(uids)
+        for i, uid in enumerate(uids):
+            em = self.fetch_email(uid)
+            if em:
+                if subject_filter is None or subject_filter(em.subject):
+                    results.append(em)
+            if progress_callback:
+                progress_callback(i + 1, total)
+        return results
+
     def search_and_fetch(
         self,
         start_date: date,
         end_date: date,
         sender_filter: str = "walmart.com",
-        progress_callback=None
+        progress_callback=None,
+        subject_filter=None,
+        subject_hints=None,
     ) -> List[RawEmail]:
         """
         Search and fetch all emails in date range.
         progress_callback(current, total) is called for progress updates.
+        subject_filter(subject: str) -> bool: optional callable to skip irrelevant emails.
+        subject_hints: list of subject substrings for server-side IMAP filtering.
         """
         uids = self.search_emails(start_date, end_date, sender_filter)
-        emails = []
-        total = len(uids)
-
-        for i, uid in enumerate(uids):
-            email = self.fetch_email(uid)
-            if email:
-                emails.append(email)
-            if progress_callback:
-                progress_callback(i + 1, total)
-
-        return emails
+        return self.fetch_emails_batch(
+            uids,
+            progress_callback=progress_callback,
+            subject_filter=subject_filter,
+        )

@@ -1,6 +1,7 @@
 """Scan router with WebSocket progress streaming."""
 import asyncio
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -9,9 +10,30 @@ from pydantic import BaseModel
 
 from routers.email import get_email_client, get_connected_email
 from services.parsers.walmart_parser import WalmartParser
+from services.parsers.target_parser import TargetParser
 from services.database.models import Order, Item, Scan, get_order_statistics
 from services.database.db import clear_orders
 from utils.config import EXTENDED_SEARCH_DAYS, STORE_CONFIGS
+
+# Parser + subject hints per store
+_STORE_PARSERS = {
+    "Walmart": {
+        "parser": WalmartParser,
+        "subject_hints": [
+            "Thanks for your",
+            "Shipped:",
+            "Arrived:",
+            "Canceled:",
+            "was canceled",
+            "preorder is preparing",
+            "double-check your address",
+        ],
+    },
+    "Target": {
+        "parser": TargetParser,
+        "subject_hints": TargetParser.SUBJECT_HINTS,
+    },
+}
 
 router = APIRouter(tags=["scan"])
 
@@ -101,7 +123,15 @@ def _run_scan(scan_id: str):
     scan_data = _active_scans[scan_id]
     scan_data["status"] = "running"
 
-    parser = WalmartParser()
+    store = scan_data["store"]
+    store_info = _STORE_PARSERS.get(store)
+    if not store_info:
+        scan_data["status"] = "error"
+        _emit(scan_id, "error", 0, 0, f"No parser for store: {store}")
+        return
+
+    parser = store_info["parser"]()
+    subject_hints = store_info.get("subject_hints")
     client = get_email_client()
     email_cache = {}
 
@@ -109,7 +139,6 @@ def _run_scan(scan_id: str):
         start = datetime.strptime(scan_data["start_date"], "%Y-%m-%d").date()
         end = datetime.strptime(scan_data["end_date"], "%Y-%m-%d").date()
         sender_filter = scan_data["sender_filter"]
-        store = scan_data["store"]
 
         # Add one day to end date to make it inclusive
         end_inclusive = end + timedelta(days=1)
@@ -117,27 +146,31 @@ def _run_scan(scan_id: str):
         # Clear previous results
         clear_orders()
 
-        # Phase 1: Search for emails
         _emit(scan_id, "searching", 0, 0, f"Searching {store} emails...")
-
         emails = client.search_and_fetch(
             start, end_inclusive,
             sender_filter=sender_filter,
-            progress_callback=lambda c, t: _emit(scan_id, "fetching", c, t, f"Fetching email {c}/{t}")
+            subject_hints=subject_hints,
+            progress_callback=lambda c, t: _emit(scan_id, "fetching", c, t, f"Downloading emails ({c}/{t})...")
         )
 
         # Cache emails
         for em in emails:
             email_cache[em.uid] = em
 
-        # Parse and save orders
+        # Parse all emails in parallel (parser has no shared mutable state)
+        total_emails = len(emails)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            parsed_results = list(executor.map(parser.parse, emails))
+
+        # Save to DB sequentially (SQLite writes are serialized)
         orders_found = 0
-        for i, raw_email in enumerate(emails):
-            parsed = parser.parse(raw_email)
+        for i, parsed in enumerate(parsed_results):
             if parsed:
                 _save_parsed_order(parsed)
                 orders_found += 1
-            _emit(scan_id, "parsing", i + 1, len(emails), f"Parsing email {i+1}/{len(emails)}")
+            if i % 5 == 0 or i == total_emails - 1:
+                _emit(scan_id, "parsing", i + 1, total_emails, f"Parsing email {i+1}/{total_emails}")
 
         _emit(scan_id, "extended", 0, 0, f"Found {orders_found} orders. Checking statuses...")
 
@@ -199,17 +232,23 @@ def _extended_status_search(scan_id, client, parser, email_cache, sender_filter)
         new_uids = [uid for uid in all_uids if uid not in cached_uids]
 
         total_new = len(new_uids)
-        for i, uid in enumerate(new_uids):
-            em = client.fetch_email(uid)
-            if em:
-                email_cache[uid] = em
-            _emit(scan_id, "extended_fetch", i + 1, total_new, f"Fetching extended {i+1}/{total_new}")
+        if total_new > 0:
+            fetched = client.fetch_emails_batch(
+                new_uids,
+                progress_callback=lambda c, t: _emit(scan_id, "extended_fetch", c, t, f"Fetching extended {c}/{t}")
+            )
+            for em in fetched:
+                email_cache[em.uid] = em
 
         order_numbers = {order.order_number: order for order in active_orders}
-        total_emails = len(email_cache)
+        cached_emails = list(email_cache.values())
+        total_cached = len(cached_emails)
 
-        for i, em in enumerate(email_cache.values()):
-            parsed = parser.parse(em)
+        # Parse extended emails in parallel
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            ext_parsed = list(executor.map(parser.parse, cached_emails))
+
+        for i, parsed in enumerate(ext_parsed):
             if parsed and parsed.order_number in order_numbers:
                 order = order_numbers[parsed.order_number]
                 if parsed.email_type == 'shipped' and not order.shipped_date:
@@ -225,7 +264,8 @@ def _extended_status_search(scan_id, client, parser, email_cache, sender_filter)
                 elif parsed.email_type == 'cancelled' and order.status != 'cancelled':
                     order.status = 'cancelled'
                     order.save()
-            _emit(scan_id, "updating", i + 1, total_emails, f"Updating statuses {i+1}/{total_emails}")
+            if i % 5 == 0 or i == total_cached - 1:
+                _emit(scan_id, "updating", i + 1, total_cached, f"Updating statuses {i+1}/{total_cached}")
 
     except Exception as e:
         print(f"Error in extended search: {e}")
