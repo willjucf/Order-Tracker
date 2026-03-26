@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Order Tracker"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 APP_FULL_NAME = f"{APP_NAME} by Willet"
 
 # GitHub repo for updates
@@ -62,7 +62,7 @@ EXTENDED_SEARCH_DAYS = 30  # Search for shipped/delivered emails up to X days af
 # Store configurations for sender filtering
 STORE_CONFIGS = {
     "Walmart": {
-        "sender_filter": "walmart.com",
+        "sender_filter": "walmart",
         "enabled": True
     },
     "Sam's Club": {
