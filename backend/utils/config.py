@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Order Tracker"
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.2.2"
 APP_FULL_NAME = f"{APP_NAME} by Willet"
 
 # GitHub repo for updates

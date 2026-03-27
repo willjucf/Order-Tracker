@@ -13,10 +13,14 @@ export default function ScanControls({ connected, connectedEmail, onScanComplete
   const [selectedStore, setSelectedStore] = useState('Walmart')
   const [startDate, setStartDate] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() - 30)
+    d.setDate(d.getDate() - 1)
     return d.toISOString().split('T')[0]
   })
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split('T')[0]
+  })
   const [scanning, setScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [statusText, setStatusText] = useState('Connect to email to start scanning')

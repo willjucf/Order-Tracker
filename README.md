@@ -1,6 +1,6 @@
-# Order Tracker v1.2.1
+# Order Tracker v1.2.2
 
-Desktop app that scans your email for Walmart orders and tracks status, spending, and item stick rates.
+Desktop app that scans your email for Walmart and Target orders and tracks status, spending, and item stick rates.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ npm run dev
 Double-click **`build.bat`** — it handles everything automatically and produces:
 
 ```
-release/Order Tracker Setup 1.2.1.exe
+release/Order Tracker Setup 1.2.2.exe
 ```
 
 Or run it from the terminal:

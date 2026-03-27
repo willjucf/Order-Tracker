@@ -164,14 +164,15 @@ def _run_scan(scan_id: str):
             parsed_results = list(executor.map(parser.parse, emails))
 
         # Save to DB sequentially (SQLite writes are serialized)
-        orders_found = 0
+        seen_order_numbers = set()
         for i, parsed in enumerate(parsed_results):
             if parsed:
                 _save_parsed_order(parsed)
-                orders_found += 1
+                seen_order_numbers.add(parsed.order_number)
             if i % 5 == 0 or i == total_emails - 1:
                 _emit(scan_id, "parsing", i + 1, total_emails, f"Parsing email {i+1}/{total_emails}")
 
+        orders_found = len(seen_order_numbers)
         _emit(scan_id, "extended", 0, 0, f"Found {orders_found} orders. Checking statuses...")
 
         # Phase 2: Extended search
