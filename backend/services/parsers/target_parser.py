@@ -33,7 +33,8 @@ class TargetParser(BaseParser):
     # Prices
     _TOTAL_CLASS = 'order-total-price'  # CSS class on the <h3> element
     _PAYMENT_PATTERN = re.compile(r'payment\s+of\s+\$(\d+\.\d{2})', re.IGNORECASE)
-    _TOTAL_FALLBACK = re.compile(r'(?:order\s+total|total)[:\s]*\$(\d+\.\d{2})', re.IGNORECASE)
+    _ORDER_TOTAL_FALLBACK = re.compile(r'order\s+total[:\s]*\$(\d+\.\d{2})', re.IGNORECASE)
+    _TOTAL_FALLBACK = re.compile(r'(?<!sub)total[:\s]*\$(\d+\.\d{2})', re.IGNORECASE)
     _PRICE_EA = re.compile(r'\$(\d+\.?\d*)\s*/\s*ea', re.IGNORECASE)
     _QTY = re.compile(r'Qty:?\s*(\d+)', re.IGNORECASE)
     _AMOUNT = re.compile(r'\$(\d+\.\d{2})')
@@ -147,6 +148,13 @@ class TargetParser(BaseParser):
                 return float(m.group(1))
 
         text = soup.get_text(separator=' ', strip=True)
+
+        # Try "order total" first (includes shipping + tax)
+        m = self._ORDER_TOTAL_FALLBACK.search(text)
+        if m:
+            return float(m.group(1))
+
+        # Generic "total" but not "subtotal"
         m = self._TOTAL_FALLBACK.search(text)
         if m:
             return float(m.group(1))

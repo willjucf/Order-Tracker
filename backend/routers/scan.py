@@ -282,7 +282,7 @@ def _save_parsed_order(parsed):
                 existing.order_date = parsed.order_date
             if not existing.expected_delivery_date and parsed.expected_delivery_date:
                 existing.expected_delivery_date = parsed.expected_delivery_date
-            if existing.total_amount == 0 and parsed.total_amount:
+            if parsed.total_amount and parsed.total_amount > existing.total_amount:
                 existing.total_amount = parsed.total_amount
             if not existing.items and parsed.items:
                 existing.items = [

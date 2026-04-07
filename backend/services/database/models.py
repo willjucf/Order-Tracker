@@ -282,11 +282,26 @@ def get_spending_by_item_type() -> List[dict]:
     """Get spending grouped by item type."""
     with get_db() as conn:
         cursor = conn.cursor()
+        # Distribute order total (incl. shipping + tax) proportionally across items
         cursor.execute("""
             SELECT
                 COALESCE(i.item_type, 'Unknown') as item_type,
                 SUM(i.quantity) as total_quantity,
-                SUM(i.quantity * i.unit_price) as total_spent
+                SUM(
+                    CASE
+                        WHEN i.unit_price > 0 AND o.total_amount > 0 THEN
+                            (i.quantity * i.unit_price) /
+                            (SELECT SUM(i2.quantity * i2.unit_price) FROM items i2 WHERE i2.order_id = o.id AND i2.unit_price > 0) *
+                            o.total_amount
+                        WHEN i.unit_price > 0 THEN
+                            i.quantity * i.unit_price
+                        WHEN o.total_amount > 0 THEN
+                            CAST(i.quantity AS REAL) /
+                            (SELECT SUM(i2.quantity) FROM items i2 WHERE i2.order_id = o.id) *
+                            o.total_amount
+                        ELSE 0
+                    END
+                ) as total_spent
             FROM items i
             JOIN orders o ON i.order_id = o.id
             WHERE o.status != 'cancelled'
@@ -308,7 +323,8 @@ def get_spending_by_item_name() -> List[dict]:
                 i.unit_price,
                 o.status,
                 o.total_amount,
-                (SELECT SUM(quantity) FROM items WHERE order_id = o.id) as order_total_qty
+                (SELECT SUM(quantity) FROM items WHERE order_id = o.id) as order_total_qty,
+                (SELECT SUM(quantity * unit_price) FROM items WHERE order_id = o.id AND unit_price > 0) as order_subtotal
             FROM items i
             JOIN orders o ON i.order_id = o.id
         """)
@@ -328,9 +344,14 @@ def get_spending_by_item_name() -> List[dict]:
             qty = row['quantity'] or 1
             is_cancelled = row['status'] == 'cancelled'
 
-            # Calculate item value
+            # Calculate item value — distribute order total (incl. shipping + tax) proportionally
             if row['unit_price'] and row['unit_price'] > 0:
-                item_value = row['unit_price'] * qty
+                item_subtotal = row['unit_price'] * qty
+                if row['total_amount'] and row['total_amount'] > 0 and row['order_subtotal'] and row['order_subtotal'] > 0:
+                    # Proportionally distribute order total (shipping + tax) across items
+                    item_value = (item_subtotal / row['order_subtotal']) * row['total_amount']
+                else:
+                    item_value = item_subtotal
             elif row['total_amount'] and row['order_total_qty'] and row['order_total_qty'] > 0:
                 item_value = (row['total_amount'] / row['order_total_qty']) * qty
             else:
