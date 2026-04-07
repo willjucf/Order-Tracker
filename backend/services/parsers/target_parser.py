@@ -177,14 +177,29 @@ class TargetParser(BaseParser):
             return self._parse_date_string(m.group(1))
         return None
 
+    # Non-product alt texts that should be skipped
+    _SKIP_ALTS = {'customer service'}
+
     def _extract_items(self, body: str) -> List[ParsedItem]:
         soup = BeautifulSoup(body, HTML_PARSER)
         items = []
         seen = set()
 
-        # Find product images: GUEST_ pattern first, then fallback to scene7 images
-        # that sit near a "Qty" label (some delivered/preorder emails use placeholders)
-        guest_imgs = soup.find_all('img', src=self._GUEST_IMG)
+        # Find product images that sit near a "Qty" label (= real purchased item).
+        # This filters out recommendation sections ("Up next, just for you", "Shop now")
+        # which also use GUEST_ images but have no Qty.
+        guest_imgs = []
+        for img in soup.find_all('img', src=self._GUEST_IMG):
+            parent = img
+            for _ in range(10):
+                parent = parent.parent
+                if parent is None:
+                    break
+                if 'Qty' in parent.get_text(separator=' ', strip=True):
+                    guest_imgs.append(img)
+                    break
+
+        # Fallback: scene7 images near a Qty label (some delivered/preorder emails use placeholders)
         if not guest_imgs:
             for img in soup.find_all('img', src=self._SCENE7_IMG):
                 alt = img.get('alt', '')
@@ -193,7 +208,6 @@ class TargetParser(BaseParser):
                 alt_lower = alt.lower()
                 if alt_lower.startswith(('bullseye', 'target ', 'down arrow')):
                     continue
-                # Walk up to see if this image is near a "Qty" label (= real product)
                 parent = img
                 for _ in range(10):
                     parent = parent.parent
@@ -209,6 +223,8 @@ class TargetParser(BaseParser):
                 continue
 
             name_key = alt.lower()
+            if name_key in self._SKIP_ALTS:
+                continue
             if name_key in seen:
                 continue
             seen.add(name_key)

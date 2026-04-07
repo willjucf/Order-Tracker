@@ -1,6 +1,6 @@
 {
   "name": "order-tracker",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Order Tracker by Willet",
   "main": "dist-electron/main/index.js",
   "scripts": {
