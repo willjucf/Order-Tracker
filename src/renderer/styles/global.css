@@ -75,10 +75,12 @@ body {
   backdrop-filter: blur(calc(var(--panel-opacity, 0.85) * 12px));
 }
 
-/* Inner elements that respond to opacity slider */
+/* Inner elements that respond to opacity slider.
+   Note: borders here use rgba (not color-mix) because these elements are captured
+   by html2canvas for the snapshot feature, and html2canvas 1.4.1 throws on color-mix(). */
 .transparent-element {
   background-color: var(--bg-header);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 6%, transparent);
+  border: 1px solid rgba(140, 140, 140, 0.18);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1),
@@ -88,7 +90,7 @@ body {
 .transparent-element:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
-  border-color: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-color: rgba(140, 140, 140, 0.32);
 }
 
 .right-panel.has-background .transparent-element {
