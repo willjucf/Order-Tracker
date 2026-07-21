@@ -227,11 +227,16 @@ class Credential:
 
     @classmethod
     def get_all(cls) -> List['Credential']:
-        """Get all saved credentials."""
+        """Get all saved credentials, most recently saved first.
+
+        Ordering matters: auto-fill uses the first row, and INSERT OR REPLACE assigns a
+        fresh (higher) id on each save, so ``id DESC`` deterministically returns the
+        credential the user connected with most recently rather than a stale one.
+        """
         credentials = []
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM credentials")
+            cursor.execute("SELECT * FROM credentials ORDER BY id DESC")
             for row in cursor.fetchall():
                 credentials.append(cls(
                     id=row['id'],

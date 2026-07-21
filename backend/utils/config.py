@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Order Tracker"
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.3.0"
 APP_FULL_NAME = f"{APP_NAME} by Willet"
 
 # GitHub repo for updates
@@ -74,8 +74,10 @@ STORE_CONFIGS = {
         "enabled": False
     },
     "Pokemon Center": {
-        "sender_filter": "pokemoncenter.com",
-        "enabled": False
+        # Confirmations come from em.pokemon.com, shipping from pokemoncenter.narvar.com,
+        # and iCloud rewrites both — all contain "pokemon", so filter broadly.
+        "sender_filter": "pokemon",
+        "enabled": True
     },
     "Amazon": {
         "sender_filter": "amazon.com",

@@ -49,6 +49,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ========================================
 echo   BUILD COMPLETE!
-echo   Installer: release\Order Tracker Setup 1.2.4.exe
+echo   Installer: release\Order Tracker Setup 1.3.0.exe
 echo ========================================
 pause

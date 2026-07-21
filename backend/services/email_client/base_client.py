@@ -34,6 +34,17 @@ class BaseEmailClient(ABC):
         """Disconnect from the email server."""
         pass
 
+    def ensure_connected(self) -> bool:
+        """Ensure the client has a live connection, reconnecting if needed.
+
+        Default implementation reconnects only when not connected. Subclasses that
+        can go stale while still appearing connected (e.g. IMAP) should override this
+        to actively probe the connection.
+        """
+        if self.connected:
+            return True
+        return self.connect()
+
     @abstractmethod
     def search_emails(
         self,

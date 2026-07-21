@@ -26,10 +26,11 @@ class ImapClient(BaseEmailClient):
         try:
             self.imap = imaplib.IMAP4_SSL(
                 self.provider_config["imap_server"],
-                self.provider_config["imap_port"]
+                self.provider_config["imap_port"],
+                timeout=30,  # avoid indefinite hangs on a dead/half-open socket
             )
             self.imap.login(self.email, self.app_password)
-            self.imap.select("INBOX")
+            self._select_search_folder()
             self.connected = True
             return True
         except imaplib.IMAP4.error as e:
@@ -40,6 +41,36 @@ class ImapClient(BaseEmailClient):
             print(f"Connection error: {e}")
             self.connected = False
             return False
+
+    def ensure_connected(self) -> bool:
+        """Verify the connection is alive, transparently reconnecting if it is stale.
+
+        IMAP servers silently drop idle connections after a few minutes, but
+        ``self.connected`` stays True and the socket still looks open. A lightweight
+        NOOP round-trip detects the dead connection so clicking Scan a second time can
+        reconnect on its own (and pick up any newly-arrived email) instead of failing
+        until the user manually disconnects and reconnects.
+        """
+        if self.imap is not None:
+            try:
+                status, _ = self.imap.noop()
+                if status == "OK":
+                    # Re-select the search folder so the view reflects newly-arrived mail.
+                    self._select_search_folder()
+                    self.connected = True
+                    return True
+            except Exception:
+                pass  # connection is dead — fall through and reconnect
+
+        # Stale or never connected — tear down cleanly and reconnect with stored creds.
+        try:
+            if self.imap is not None:
+                self.imap.logout()
+        except Exception:
+            pass
+        self.imap = None
+        self.connected = False
+        return self.connect()
 
     def disconnect(self):
         """Disconnect from email server."""
@@ -53,6 +84,45 @@ class ImapClient(BaseEmailClient):
                 self.imap = None
                 self.connected = False
 
+    def _select_search_folder(self):
+        """Select the mailbox to search over.
+
+        Gmail (and any server exposing an ``\\All`` special-use mailbox) keeps archived
+        and older messages out of INBOX — only in "All Mail". Order confirmations for
+        preorders are often placed weeks/months earlier and have since been archived, so
+        searching INBOX alone misses them. Prefer the ``\\All`` mailbox when present and
+        fall back to INBOX for providers that don't have one.
+        """
+        folder = self._resolve_search_folder()
+        try:
+            status, _ = self.imap.select(folder)
+            if status == "OK":
+                return
+        except Exception:
+            pass
+        self.imap.select("INBOX")
+
+    def _resolve_search_folder(self) -> str:
+        """Return the IMAP mailbox name to search (quoted if it contains spaces).
+
+        Looks for the server's ``\\All`` special-use mailbox (Gmail's "All Mail",
+        locale-independent). Returns "INBOX" if none is advertised.
+        """
+        try:
+            status, folders = self.imap.list()
+            if status == "OK" and folders:
+                for raw in folders:
+                    line = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw)
+                    # LIST line looks like: (\HasNoChildren \All) "/" "[Gmail]/All Mail"
+                    if "\\All" in line:
+                        m = re.search(r'"([^"]+)"\s*$', line) or re.search(r'(\S+)\s*$', line)
+                        if m:
+                            name = m.group(1)
+                            return f'"{name}"' if " " in name else name
+        except Exception:
+            pass
+        return "INBOX"
+
     def search_emails(
         self,
         start_date: date,
@@ -60,41 +130,56 @@ class ImapClient(BaseEmailClient):
         sender_filter: str = "walmart.com",
         subject_hints: Optional[List[str]] = None,
     ) -> List[str]:
-        """Search for emails within date range from specified sender.
+        """Search for emails within a date range, robust to forwarded/rewritten senders.
 
-        Uses progressive fallback:
-          1. FROM + date + subject hints  (fastest — only relevant emails)
-          2. FROM + date                  (if hints returned nothing or errored)
-          3. date only                    (if FROM filter doesn't match sender format)
+        The results of the "targeted" queries are UNIONed rather than returning the first
+        non-empty one. A sender-filtered query alone silently misses forwarded mail:
+        iCloud "Hide My Email" rewrites the From address (e.g. ``info@em.pokemon.com`` ->
+        ``info_at_em_pokemon_com_...@icloud.com``) and Gmail's IMAP search is token-based,
+        so ``FROM "pokemon"`` never matches the "pokemon" buried inside ``em_pokemon_com``.
+        A subject-based query (sender-agnostic) catches those forwarded emails; the
+        parser's ``can_parse()`` does the final sender check downstream.
+
+        Query union (in order, deduped):
+          - subject + date                (sender-agnostic — catches forwarded/rewritten)
+          - FROM + date + subject hints   (specific, when the sender filter is reliable)
+          - FROM + date                   (sender matches whose subject we don't recognize)
+        Falls back to a date-only search only if every targeted query is empty.
         """
         if not self.imap or not self.connected:
             return []
 
         start_str = start_date.strftime("%d-%b-%Y")
         end_str = end_date.strftime("%d-%b-%Y")
+        date_clause = f'SINCE "{start_str}" BEFORE "{end_str}"'
 
-        queries = []
-
-        # Most specific first: FROM + date + subject hints
+        targeted = []
         if subject_hints:
             subject_part = self._build_subject_query(subject_hints)
-            queries.append(
-                f'(FROM "{sender_filter}" SINCE "{start_str}" BEFORE "{end_str}" {subject_part})'
-            )
+            # Sender-agnostic subject search first — the only one that finds forwarded mail.
+            targeted.append(f'({date_clause} {subject_part})')
+            targeted.append(f'(FROM "{sender_filter}" {date_clause} {subject_part})')
+        targeted.append(f'(FROM "{sender_filter}" {date_clause})')
 
-        # Fallback: FROM + date only
-        queries.append(f'(FROM "{sender_filter}" SINCE "{start_str}" BEFORE "{end_str}")')
-
-        # Last resort: date only (parser's can_parse will filter by sender later)
-        queries.append(f'(SINCE "{start_str}" BEFORE "{end_str}")')
-
-        for query in queries:
+        collected = set()
+        for query in targeted:
             try:
                 status, messages = self.imap.search(None, query)
-                if status == "OK" and messages[0]:
-                    return messages[0].decode().split()
+                if status == "OK" and messages and messages[0]:
+                    collected.update(messages[0].decode().split())
             except Exception:
                 continue
+
+        if collected:
+            return sorted(collected, key=lambda x: int(x) if x.isdigit() else 0)
+
+        # Last resort: date only (parser's can_parse will filter by sender later)
+        try:
+            status, messages = self.imap.search(None, f'({date_clause})')
+            if status == "OK" and messages and messages[0]:
+                return messages[0].decode().split()
+        except Exception:
+            pass
 
         return []
 

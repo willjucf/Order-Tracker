@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from routers.email import get_email_client, get_connected_email
 from services.parsers.walmart_parser import WalmartParser
 from services.parsers.target_parser import TargetParser
+from services.parsers.pokemon_parser import PokemonParser
 from services.database.models import Order, Item, Scan, get_order_statistics
 from services.database.db import clear_orders
 from utils.config import EXTENDED_SEARCH_DAYS, STORE_CONFIGS
@@ -32,6 +33,10 @@ _STORE_PARSERS = {
     "Target": {
         "parser": TargetParser,
         "subject_hints": TargetParser.SUBJECT_HINTS,
+    },
+    "Pokemon Center": {
+        "parser": PokemonParser,
+        "subject_hints": PokemonParser.SUBJECT_HINTS,
     },
 }
 
@@ -55,8 +60,13 @@ class ScanResponse(BaseModel):
 async def start_scan(req: ScanRequest):
     """Start a new email scan."""
     client = get_email_client()
-    if not client or not client.connected:
+    if not client:
         raise HTTPException(status_code=400, detail="Not connected to email")
+
+    # Reestablish the IMAP connection if it went stale since the last scan. This lets a
+    # repeat scan work without a manual disconnect/reconnect and catches missed email.
+    if not client.ensure_connected():
+        raise HTTPException(status_code=400, detail="Email connection lost. Please reconnect.")
 
     store_config = STORE_CONFIGS.get(req.store)
     if not store_config or not store_config.get("enabled"):
@@ -176,7 +186,7 @@ def _run_scan(scan_id: str):
         _emit(scan_id, "extended", 0, 0, f"Found {orders_found} orders. Checking statuses...")
 
         # Phase 2: Extended search
-        _extended_status_search(scan_id, client, parser, email_cache, sender_filter)
+        _extended_status_search(scan_id, client, parser, email_cache, sender_filter, subject_hints)
 
         # Save scan history
         stats = get_order_statistics()
@@ -204,7 +214,7 @@ def _run_scan(scan_id: str):
         scan_data["status"] = "error"
 
 
-def _extended_status_search(scan_id, client, parser, email_cache, sender_filter):
+def _extended_status_search(scan_id, client, parser, email_cache, sender_filter, subject_hints=None):
     """Search for shipped/delivered emails for active orders."""
     active_orders = Order.get_active_orders()
     if not active_orders:
@@ -229,7 +239,8 @@ def _extended_status_search(scan_id, client, parser, email_cache, sender_filter)
 
     try:
         cached_uids = set(email_cache.keys())
-        all_uids = client.search_emails(earliest_date, latest_date, sender_filter=sender_filter)
+        all_uids = client.search_emails(earliest_date, latest_date, sender_filter=sender_filter,
+                                        subject_hints=subject_hints)
         new_uids = [uid for uid in all_uids if uid not in cached_uids]
 
         total_new = len(new_uids)
