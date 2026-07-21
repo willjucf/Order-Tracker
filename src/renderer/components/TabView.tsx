@@ -3,7 +3,6 @@ import ResultsTab from './ResultsTab'
 import HistoryTab from './HistoryTab'
 import ThemesTab from './ThemesTab'
 import type { ThemeName } from '../hooks/useTheme'
-import { APP_VERSION } from '../version'
 
 interface TabViewProps {
   refreshKey: number
@@ -44,17 +43,14 @@ export default function TabView({ refreshKey, themeCtx, backgroundPath, onBackgr
       overflow: 'hidden',
       height: '100%',
     }}>
-      {/* App header row: title left, username right */}
+      {/* App header row: username right (title moved to sidebar) */}
       <div className="panel-header" style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
         padding: '12px 16px',
         borderRadius: '16px 16px 0 0',
       }}>
-        <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
-          Order Tracker by Willet v{APP_VERSION}
-        </span>
         {username && (
           <span className="username-display" style={{
             fontSize: '18px',

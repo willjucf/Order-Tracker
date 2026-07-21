@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../hooks/useApi'
 import type { Provider, Credential } from '../types'
+import { APP_VERSION } from '../version'
 
 interface LoginFormProps {
   connected: boolean
@@ -85,6 +86,16 @@ export default function LoginForm({ connected, onConnect, onDisconnect }: LoginF
 
   return (
     <div>
+      {/* App title — moved here from the right-panel header */}
+      <div style={{ textAlign: 'center', marginBottom: '16px', lineHeight: 1.15 }}>
+        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+          Order Tracker
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+          by Willet v{APP_VERSION}
+        </div>
+      </div>
+
       <div className="panel-header" style={{ marginBottom: '12px', textAlign: 'center' }}>
         <span style={{ fontSize: '16px', fontWeight: 'bold' }}>Email Connection</span>
       </div>
