@@ -188,6 +188,10 @@ def _run_scan(scan_id: str):
         # Phase 2: Extended search
         _extended_status_search(scan_id, client, parser, email_cache, sender_filter, subject_hints)
 
+        # Phase 3: Reconcile statuses against recorded dates (deterministic,
+        # independent of which emails this scan happened to fetch)
+        _reconcile_order_statuses()
+
         # Save scan history
         stats = get_order_statistics()
         scan = Scan(
@@ -265,14 +269,26 @@ def _extended_status_search(scan_id, client, parser, email_cache, sender_filter,
                 order = order_numbers[parsed.order_number]
                 if parsed.email_type == 'shipped' and not order.shipped_date:
                     order.shipped_date = parsed.shipped_date
-                    order.status = 'shipped'
+                    # Don't downgrade an already delivered/cancelled order back to shipped
+                    if order.status not in ('delivered', 'cancelled'):
+                        order.status = 'shipped'
                     if parsed.expected_delivery_date:
                         order.expected_delivery_date = parsed.expected_delivery_date
                     order.save()
-                elif parsed.email_type == 'delivered' and not order.delivered_date:
-                    order.delivered_date = parsed.delivered_date
-                    order.status = 'delivered'
-                    order.save()
+                elif parsed.email_type == 'delivered' and order.status != 'cancelled':
+                    # Self-heal: a delivered email always wins over shipped,
+                    # even if delivered_date was already recorded (repairs orders
+                    # whose status got clobbered back to 'shipped' by a later
+                    # shipped email during a previous scan).
+                    changed = False
+                    if not order.delivered_date:
+                        order.delivered_date = parsed.delivered_date
+                        changed = True
+                    if order.status != 'delivered':
+                        order.status = 'delivered'
+                        changed = True
+                    if changed:
+                        order.save()
                 elif parsed.email_type == 'cancelled' and order.status != 'cancelled':
                     order.status = 'cancelled'
                     order.save()
@@ -281,6 +297,28 @@ def _extended_status_search(scan_id, client, parser, email_cache, sender_filter,
 
     except Exception as e:
         print(f"Error in extended search: {e}")
+
+
+def _reconcile_order_statuses():
+    """Enforce status invariants against recorded dates.
+
+    A previous scan could leave an order with a delivered_date but a stale
+    'shipped' status (e.g. a shipped email parsed after the delivered one).
+    This pass repairs such orders deterministically, without depending on the
+    delivered/shipped email being re-fetched in the current scan.
+    Order of precedence: cancelled > delivered > shipped > confirmed.
+    """
+    for order in Order.get_all():
+        if order.status == 'cancelled':
+            continue
+        new_status = order.status
+        if order.delivered_date:
+            new_status = 'delivered'
+        elif order.shipped_date and order.status in ('confirmed', ''):
+            new_status = 'shipped'
+        if new_status != order.status:
+            order.status = new_status
+            order.save()
 
 
 def _save_parsed_order(parsed):
