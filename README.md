@@ -1,6 +1,6 @@
 # Order Tracker v1.3.1
 
-Desktop app that scans your email for Walmart and Target orders and tracks status, spending, and item stick rates.
+Desktop app that scans your email for Pokemon Center, Walmart and Target orders and tracks status, spending, and item stick rates.
 
 ## Requirements
 
