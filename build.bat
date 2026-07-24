@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   Order Tracker - Build Script
+echo   Willet's Order Tracker - Build Script
 echo ========================================
 echo.
 
@@ -49,6 +49,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ========================================
 echo   BUILD COMPLETE!
-echo   Installer: release\Order Tracker Setup 1.3.1.exe
+echo   Installer: release\Willets Order Tracker Setup 1.3.2.exe
 echo ========================================
 pause

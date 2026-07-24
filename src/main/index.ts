@@ -88,7 +88,7 @@ async function createWindow() {
     height: 1000,
     minWidth: 1200,
     minHeight: 800,
-    title: 'Order Tracker',
+    title: "Willet's Order Tracker",
     backgroundColor: '#121212',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),

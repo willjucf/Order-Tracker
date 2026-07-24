@@ -1,4 +1,4 @@
-"""FastAPI backend for Order Tracker."""
+"""FastAPI backend for Willet's Order Tracker."""
 import sys
 import os
 import urllib.request
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Order Tracker API",
+    title="Willet's Order Tracker API",
     version=APP_VERSION,
     lifespan=lifespan,
 )

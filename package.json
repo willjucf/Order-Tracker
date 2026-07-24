@@ -1,7 +1,7 @@
 {
   "name": "order-tracker",
-  "version": "1.3.1",
-  "description": "Order Tracker by Willet",
+  "version": "1.3.2",
+  "description": "Willet's Order Tracker",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
@@ -13,6 +13,8 @@
     "version:set": "node scripts/set-version.js"
   },
   "dependencies": {
+    "gifenc": "^1.0.3",
+    "gifuct-js": "^2.1.2",
     "html2canvas": "^1.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -31,7 +33,7 @@
   },
   "build": {
     "appId": "com.willet.ordertracker",
-    "productName": "Order Tracker",
+    "productName": "Willet's Order Tracker",
     "directories": {
       "output": "release"
     },
@@ -54,7 +56,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Willets Order Tracker Setup ${version}.${ext}"
     }
   }
 }

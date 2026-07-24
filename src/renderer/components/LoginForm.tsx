@@ -89,10 +89,10 @@ export default function LoginForm({ connected, onConnect, onDisconnect }: LoginF
       {/* App title — moved here from the right-panel header */}
       <div style={{ textAlign: 'center', marginBottom: '16px', lineHeight: 1.15 }}>
         <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-          Order Tracker
+          Willet's Order Tracker
         </div>
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-          by Willet v{APP_VERSION}
+          v{APP_VERSION}
         </div>
       </div>
 

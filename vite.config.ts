@@ -40,6 +40,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  // Pre-bundle the GIF snapshot deps (CommonJS) so they resolve reliably in the
+  // renderer without a mid-session re-optimize (which can break the first import).
+  optimizeDeps: {
+    include: ['gifuct-js', 'gifenc'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/renderer'),

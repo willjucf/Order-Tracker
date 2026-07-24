@@ -48,15 +48,15 @@ updated.push('backend/utils/config.py')
 // 3. build.bat
 const batPath = path.join(root, 'build.bat')
 let bat = fs.readFileSync(batPath, 'utf8')
-bat = bat.replace(/Order Tracker Setup \d+\.\d+\.\d+\.exe/g, `Order Tracker Setup ${newVersion}.exe`)
+bat = bat.replace(/Willets Order Tracker Setup \d+\.\d+\.\d+\.exe/g, `Willets Order Tracker Setup ${newVersion}.exe`)
 fs.writeFileSync(batPath, bat)
 updated.push('build.bat')
 
 // 4. README.md
 const readmePath = path.join(root, 'README.md')
 let readme = fs.readFileSync(readmePath, 'utf8')
-readme = readme.replace(/# Order Tracker v[\d.]+/, `# Order Tracker v${displayVersion}`)
-readme = readme.replace(/Order Tracker Setup \d+\.\d+\.\d+\.exe/g, `Order Tracker Setup ${newVersion}.exe`)
+readme = readme.replace(/# Willet's Order Tracker v[\d.]+/, `# Willet's Order Tracker v${displayVersion}`)
+readme = readme.replace(/Willets Order Tracker Setup \d+\.\d+\.\d+\.exe/g, `Willets Order Tracker Setup ${newVersion}.exe`)
 fs.writeFileSync(readmePath, readme)
 updated.push('README.md')
 

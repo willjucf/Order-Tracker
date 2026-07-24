@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import html2canvas from 'html2canvas'
+import { buildAnimatedGif, buildGifStillPng, isGifPath } from '../utils/gifSnapshot'
 import { api } from '../hooks/useApi'
 import StatsBar from './StatsBar'
 import SpendingTable from './SpendingTable'
 import OrdersSection from './OrdersSection'
 import type { Stats, SpendingItem, Order } from '../types'
-import { APP_VERSION } from '../version'
 
 interface ResultsTabProps {
   refreshKey: number
@@ -19,13 +19,21 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
   const [spending, setSpending] = useState<SpendingItem[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [capturing, setCapturing] = useState(false)
+  const [gifBusy, setGifBusy] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [savedGif, setSavedGif] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const pendingBlobUrlRef = useRef<string | null>(null)
+  // File extension of the pending blob ('gif' | 'png') — read by the save
+  // handler via ref so it never captures a stale value from a closure.
+  const pendingExtRef = useRef<'gif' | 'png'>('png')
   // Holds the image's natural width when capturing with a background
   const captureWidthRef = useRef<number>(1400)
   // Stores a data URL of the bg image so html2canvas never needs to re-fetch it
   const bgDataUrlRef = useRef<string | null>(null)
+  // True while capturing over an animated GIF (foreground kept transparent so
+  // the GIF frames can be composited behind it afterwards)
+  const isGifCaptureRef = useRef<boolean>(false)
 
   const bgFilename = backgroundPath ? backgroundPath.split(/[\\/]/).pop() : null
   const bgUrl = bgFilename ? `http://127.0.0.1:8420/api/backgrounds/${bgFilename}` : null
@@ -39,9 +47,15 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
   const handleCapture = useCallback(async () => {
     if (!contentRef.current || capturing) return
 
-    // If a background is set, load it to get dimensions + convert to data URL
+    // Animated GIF background → capture a transparent foreground and composite
+    // it over the GIF's frames afterwards (see below). Skip the still-image
+    // data-URL path so the GIF area is left transparent during html2canvas.
+    const isGif = !!bgUrl && isGifPath(bgFilename)
+    isGifCaptureRef.current = isGif
+
+    // If a still image is set, load it to get dimensions + convert to data URL
     // so html2canvas never needs to re-fetch it over the network
-    if (bgUrl) {
+    if (bgUrl && !isGif) {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       await new Promise<void>(resolve => {
@@ -74,7 +88,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: bgDataUrlRef.current
+        backgroundColor: (bgDataUrlRef.current || isGifCaptureRef.current)
           ? null
           : (getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#1e1e1e'),
         logging: false,
@@ -82,16 +96,55 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
         windowHeight: contentRef.current.scrollHeight,
       })
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return
+      const savePng = () => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) return
 
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+          } catch {}
+
+          pendingBlobUrlRef.current = URL.createObjectURL(blob)
+          pendingExtRef.current = 'png'
+          setSavedGif(false)
+          setShowSaveDialog(true)
+        }, 'image/png')
+      }
+
+      if (isGifCaptureRef.current && bgUrl) {
+        // Composite the transparent foreground over every GIF frame and
+        // re-encode as an animated GIF. This can take a moment.
+        setGifBusy(true)
         try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        } catch {}
-
-        pendingBlobUrlRef.current = URL.createObjectURL(blob)
-        setShowSaveDialog(true)
-      }, 'image/png')
+          const blob = await buildAnimatedGif(canvas, bgUrl)
+          pendingBlobUrlRef.current = URL.createObjectURL(blob)
+          pendingExtRef.current = 'gif'
+          setSavedGif(true)
+          setShowSaveDialog(true)
+        } catch (gifErr) {
+          // Animated encode failed — fall back to a STILL PNG that still shows
+          // the background (composite over the GIF's first frame), so the
+          // snapshot never comes out with a missing/black background.
+          console.error('GIF build failed, falling back to still PNG:', gifErr)
+          try {
+            const still = await buildGifStillPng(canvas, bgUrl)
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': still })])
+            } catch {}
+            pendingBlobUrlRef.current = URL.createObjectURL(still)
+            pendingExtRef.current = 'png'
+            setSavedGif(false)
+            setShowSaveDialog(true)
+          } catch (stillErr) {
+            console.error('Still fallback failed too:', stillErr)
+            savePng()
+          }
+        } finally {
+          setGifBusy(false)
+        }
+      } else {
+        savePng()
+      }
     } catch (err) {
       console.error('Capture failed:', err)
     } finally {
@@ -103,7 +156,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
     if (!pendingBlobUrlRef.current) return
     const a = document.createElement('a')
     a.href = pendingBlobUrlRef.current
-    a.download = `order-tracker-${new Date().toISOString().slice(0, 10)}.png`
+    a.download = `order-tracker-${new Date().toISOString().slice(0, 10)}.${pendingExtRef.current}`
     a.click()
     URL.revokeObjectURL(pendingBlobUrlRef.current)
     pendingBlobUrlRef.current = null
@@ -151,7 +204,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
 
       <div
         ref={contentRef}
-        className={capturing && bgDataUrlRef.current ? 'right-panel has-background' : undefined}
+        className={capturing && (bgDataUrlRef.current || isGifCaptureRef.current) ? 'right-panel has-background' : undefined}
         style={captureStyle}
       >
         {capturing && (
@@ -163,7 +216,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
             borderRadius: '12px',
           }}>
             <span style={{ fontSize: '17px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-              Order Tracker by Willet v{APP_VERSION}
+              Willet's Order Tracker
             </span>
             {username && (
               <span style={{ fontSize: '19px', fontWeight: '700', color: 'var(--text-primary)' }}>
@@ -194,6 +247,35 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
         </div>
       )}
 
+      {gifBusy && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-card)',
+            borderRadius: '16px',
+            padding: '28px 40px',
+            textAlign: 'center',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>🎞️</div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+              Generating animated GIF…
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+              This can take a few seconds
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSaveDialog && (
         <div style={{
           position: 'fixed',
@@ -214,12 +296,12 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
             textAlign: 'center',
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
           }}>
-            <div style={{ fontSize: '36px', marginBottom: '14px' }}>✅</div>
+            <div style={{ fontSize: '36px', marginBottom: '14px' }}>{savedGif ? '🎞️' : '✅'}</div>
             <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>
-              Copied to clipboard!
+              {savedGif ? 'Animated GIF ready!' : 'Copied to clipboard!'}
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '28px' }}>
-              Would you like to save the image to your PC?
+              Would you like to save the {savedGif ? 'GIF' : 'image'} to your PC?
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
