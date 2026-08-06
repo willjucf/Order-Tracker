@@ -75,7 +75,7 @@ New to this? This is the easiest setup, and it uses **zero UpLink data**. Do all
    - **IMAP Server Password:** paste from step 6
 9. Click **Connect**, then run a scan.
 
-That's the whole thing. Because it all runs on one machine, there's no UpLink involved and nothing to turn off afterward. Connecting from a **different** computer instead? See *Remote (UpLink)* below — that path uses metered data.
+That's the whole thing. Connecting from a **different** computer instead? See *Remote (UpLink)* below — that path uses AYCD data.
 
 #### The two ways to connect
 
@@ -86,7 +86,7 @@ Read the bandwidth note before choosing.
 | **Local (recommended)** | Tracker runs on the **same machine** as AYCD Inbox | `127.0.0.1` · your IMAP Server port · **TLS off** | **None** — localhost is not metered |
 | **UpLink (remote)** | Tracker runs on a **different machine/network** | your `…-inbox-imap.aycd.net` host · `993` · **TLS on** | **Yes** — every scan counts on AYCD plan |
 
-> ⚠️ **UpLink bandwidth is metered and resets monthly.** AYCD gives you a data allowance tied to your plan that refreshes on a rolling ~30-day cycle. Every scan over UpLink pulls the matched order emails through the tunnel, so remote testing eats into that allowance quickly — a few big scans can burn a noticeable chunk. **The fix: run the tracker on the same PC as AYCD Inbox and connect over `127.0.0.1`, which is free and unmetered.** Only use UpLink when you genuinely need remote access, and turn Remote Access **off** when you're done. Also stay on the latest build.
+> ⚠️ **UpLink bandwidth is metered and resets monthly.** AYCD gives you a data allowance tied to your plan that refreshes on a rolling ~30-day cycle. Every scan over UpLink pulls the matched order emails through the tunnel, so remote testing eats into that allowance quickly — a few big scans can burn a noticeable chunk. **Run the tracker on the same PC as AYCD Inbox and connect over `127.0.0.1`, which is free and unmetered.** Only use UpLink when you genuinely need remote access, and turn Remote Access **off** when you're done. Also stay on the latest build.
 
 #### Step 1 — AYCD → Settings → IMAP Server
 
@@ -123,7 +123,7 @@ The Unified Inbox only shows mail that AYCD has synced, so keep syncing running.
 Skip this entirely if the tracker runs on the same machine as AYCD Inbox.
 
 1. Click **Enable Remote Access for Inbox IMAP**. It fills in **Protocol / Host / Port** (typically `imaps` / `…-inbox-imap.aycd.net` / `993`).
-2. In the tracker, set **Host** and **Port** to those values and **turn Use TLS/SSL ON** (because the Protocol is `imaps`). You can set the IMAP Server bind back to **Localhost Only** — UpLink tunnels it for you.
+2. In the tracker, set **Host** and **Port** to those values and **turn Use TLS/SSL ON** (because the Protocol is `imaps`). You can leave the IMAP Server bind on **Localhost Only** — UpLink tunnels it for you.
 3. **Turn Remote Access OFF when you're done.** ✅ **This is the switch that saves your UpLink data** — while it's on, remote scans keep drawing from your bandwidth.
 
 #### What stays on vs. what to turn off
