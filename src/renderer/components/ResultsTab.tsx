@@ -38,11 +38,15 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
   const bgFilename = backgroundPath ? backgroundPath.split(/[\\/]/).pop() : null
   const bgUrl = bgFilename ? `http://127.0.0.1:8420/api/backgrounds/${bgFilename}` : null
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     api<Stats>('/api/stats').then(setStats).catch(() => {})
     api<SpendingItem[]>('/api/spending').then(setSpending).catch(() => {})
     api<Order[]>('/api/orders').then(setOrders).catch(() => {})
-  }, [refreshKey])
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [refreshKey, loadData])
 
   const handleCapture = useCallback(async () => {
     if (!contentRef.current || capturing) return
@@ -243,7 +247,7 @@ export default function ResultsTab({ refreshKey, username, backgroundPath, onReg
 
       {orders.length > 0 && (
         <div style={{ marginTop: '20px' }}>
-          <OrdersSection orders={orders} />
+          <OrdersSection orders={orders} onOrderDeleted={loadData} />
         </div>
       )}
 

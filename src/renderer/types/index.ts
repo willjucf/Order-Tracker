@@ -75,6 +75,10 @@ export interface ScanProgress {
 export interface Provider {
   name: string
   enabled: boolean
+  // custom_connection providers (AYCD Inbox) expose editable host/port fields.
+  custom?: boolean
+  defaultHost?: string
+  defaultPort?: number
 }
 
 export interface Store {

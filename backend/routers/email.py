@@ -1,4 +1,6 @@
 """Email connection router."""
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -16,6 +18,10 @@ class ConnectRequest(BaseModel):
     email: str
     password: str
     provider: str
+    # Only used by custom_connection providers (e.g. AYCD Inbox's local IMAP server).
+    host: Optional[str] = None
+    port: Optional[int] = None
+    use_ssl: Optional[bool] = None
 
 
 class ConnectResponse(BaseModel):
@@ -35,7 +41,10 @@ def connect(req: ConnectRequest):
         except Exception:
             pass
 
-    client = get_client(req.provider, req.email, req.password)
+    client = get_client(
+        req.provider, req.email, req.password,
+        host=req.host, port=req.port, use_ssl=req.use_ssl,
+    )
     if not client:
         raise HTTPException(status_code=400, detail="Provider not available")
 
@@ -44,7 +53,8 @@ def connect(req: ConnectRequest):
         _connected_email = req.email
         return ConnectResponse(success=True, message="Connected!")
     else:
-        raise HTTPException(status_code=401, detail="Connection failed. Check credentials.")
+        detail = client.last_error or "Connection failed. Check credentials."
+        raise HTTPException(status_code=401, detail=detail)
 
 
 @router.post("/disconnect", response_model=ConnectResponse)

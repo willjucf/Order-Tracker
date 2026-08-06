@@ -20,8 +20,10 @@ export default function Sidebar({ connected, connectedEmail, onConnect, onDiscon
       gap: '10px',
       overflow: 'hidden',
     }}>
-      {/* Login */}
-      <div className="panel" style={{ padding: '16px' }}>
+      {/* Login — flex:1 1 0 + minHeight:0 so it splits the sidebar height evenly with
+          Scan Controls and scrolls internally (rather than growing to fit the taller
+          AYCD field set and squeezing Scan Controls). */}
+      <div className="panel" style={{ padding: '16px', flex: '1 1 0', minHeight: 0, overflow: 'auto' }}>
         <LoginForm
           connected={connected}
           onConnect={onConnect}
@@ -29,8 +31,8 @@ export default function Sidebar({ connected, connectedEmail, onConnect, onDiscon
         />
       </div>
 
-      {/* Scan Controls */}
-      <div className="panel" style={{ padding: '16px', flex: 1, overflow: 'auto' }}>
+      {/* Scan Controls — equal half, independent scroll. */}
+      <div className="panel" style={{ padding: '16px', flex: '1 1 0', minHeight: 0, overflow: 'auto' }}>
         <ScanControls
           connected={connected}
           connectedEmail={connectedEmail}

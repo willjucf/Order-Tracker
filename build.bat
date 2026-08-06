@@ -23,6 +23,10 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [3/4] Bundling Python backend...
+echo   Clearing PyInstaller cache to force a clean rebuild...
+if exist backend\build rd /s /q backend\build
+if exist backend\dist rd /s /q backend\dist
+if exist backend-dist rd /s /q backend-dist
 cd backend
 pyinstaller --onefile --name main main.py --hidden-import uvicorn.logging --hidden-import uvicorn.protocols.http --hidden-import uvicorn.protocols.http.auto --hidden-import uvicorn.protocols.websockets --hidden-import uvicorn.protocols.websockets.auto --hidden-import uvicorn.lifespan --hidden-import uvicorn.lifespan.on --hidden-import uvicorn.protocols.http.h11_impl --hidden-import uvicorn.protocols.websockets.wsproto_impl --hidden-import uvicorn.protocols.websockets.websockets_impl
 cd ..
@@ -49,6 +53,6 @@ if %errorlevel% neq 0 (
 echo.
 echo ========================================
 echo   BUILD COMPLETE!
-echo   Installer: release\Willets Order Tracker Setup 1.3.2.exe
+echo   Installer: release\Willets Order Tracker Setup 1.4.0.exe
 echo ========================================
 pause

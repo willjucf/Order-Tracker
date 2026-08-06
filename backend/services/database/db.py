@@ -118,6 +118,18 @@ def init_database():
         except sqlite3.OperationalError:
             pass  # Column already exists
 
+        # Migrate credentials table - add host/port for custom_connection providers (AYCD)
+        cred_columns_to_add = [
+            ("host", "TEXT"),
+            ("port", "INTEGER"),
+            ("use_ssl", "INTEGER"),  # 0/1/NULL — TLS toggle for custom (AYCD UpLink)
+        ]
+        for col_name, col_type in cred_columns_to_add:
+            try:
+                cursor.execute(f"ALTER TABLE credentials ADD COLUMN {col_name} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
         # Migrate scans table - add new columns if they don't exist
         scans_columns_to_add = [
             ("email_used", "TEXT"),

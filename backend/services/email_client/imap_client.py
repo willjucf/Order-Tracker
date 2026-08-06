@@ -15,29 +15,59 @@ from utils.config import EMAIL_PROVIDERS
 class ImapClient(BaseEmailClient):
     """Generic IMAP client that works with any email provider."""
 
-    def __init__(self, email_addr: str, app_password: str, provider_key: str):
+    def __init__(
+        self,
+        email_addr: str,
+        app_password: str,
+        provider_key: str,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        use_ssl: Optional[bool] = None,
+    ):
         super().__init__(email_addr, app_password)
-        self.imap: Optional[imaplib.IMAP4_SSL] = None
+        self.imap: Optional[imaplib.IMAP4] = None
         self.provider_key = provider_key
         self.provider_config = EMAIL_PROVIDERS.get(provider_key, EMAIL_PROVIDERS["gmail"])
+        # host/port/use_ssl may be overridden per-connection (AYCD Inbox runs a local IMAP
+        # server on a user-specific port with TLS off). Fall back to the provider defaults.
+        self.host = host or self.provider_config["imap_server"]
+        self.port = int(port) if port else self.provider_config["imap_port"]
+        self.use_ssl = self.provider_config.get("use_ssl", True) if use_ssl is None else use_ssl
 
     def connect(self) -> bool:
         """Connect to IMAP server."""
+        self.last_error = ""
         try:
-            self.imap = imaplib.IMAP4_SSL(
-                self.provider_config["imap_server"],
-                self.provider_config["imap_port"],
-                timeout=30,  # avoid indefinite hangs on a dead/half-open socket
+            imap_cls = imaplib.IMAP4_SSL if self.use_ssl else imaplib.IMAP4
+            self.imap = imap_cls(
+                self.host,
+                self.port,
+                timeout=60,  # bounded, but generous for slow tunnels (AYCD UpLink) so a
+                             # multi-email FETCH batch doesn't clip mid-transfer
             )
             self.imap.login(self.email, self.app_password)
             self._select_search_folder()
             self.connected = True
             return True
         except imaplib.IMAP4.error as e:
+            # Reached the server, but it rejected the login (bad user/password/state).
+            self.last_error = f"IMAP server reached but rejected login: {e}"
             print(f"IMAP login error: {e}")
             self.connected = False
             return False
+        except OSError as e:
+            # Never reached the server: refused, timed out, host unknown, etc.
+            # (ConnectionRefusedError, TimeoutError, socket.gaierror are all OSError.)
+            self.last_error = (
+                f"Could not reach IMAP server at {self.host}:{self.port} ({e}). "
+                f"Check the AYCD IMAP Server is enabled (Status: Running) and reachable "
+                f"from this machine, and that the host/port match."
+            )
+            print(f"Connection error: {e}")
+            self.connected = False
+            return False
         except Exception as e:
+            self.last_error = f"Connection error: {e}"
             print(f"Connection error: {e}")
             self.connected = False
             return False
@@ -93,14 +123,18 @@ class ImapClient(BaseEmailClient):
         searching INBOX alone misses them. Prefer the ``\\All`` mailbox when present and
         fall back to INBOX for providers that don't have one.
         """
+        # readonly=True issues EXAMINE, not SELECT. This app only reads mail, so it never
+        # needs write access — and AYCD Inbox's Unified Inbox (inbox@aycd.me) is a
+        # read-only mailbox that rejects a read-write SELECT ("INBOX is not writable").
+        # EXAMINE also means scans don't mark the user's emails as \Seen.
         folder = self._resolve_search_folder()
         try:
-            status, _ = self.imap.select(folder)
+            status, _ = self.imap.select(folder, readonly=True)
             if status == "OK":
                 return
         except Exception:
             pass
-        self.imap.select("INBOX")
+        self.imap.select("INBOX", readonly=True)
 
     def _resolve_search_folder(self) -> str:
         """Return the IMAP mailbox name to search (quoted if it contains spaces).
@@ -132,19 +166,30 @@ class ImapClient(BaseEmailClient):
     ) -> List[str]:
         """Search for emails within a date range, robust to forwarded/rewritten senders.
 
-        The results of the "targeted" queries are UNIONed rather than returning the first
-        non-empty one. A sender-filtered query alone silently misses forwarded mail:
-        iCloud "Hide My Email" rewrites the From address (e.g. ``info@em.pokemon.com`` ->
+        A sender-filtered query alone silently misses forwarded mail: iCloud "Hide My
+        Email" rewrites the From address (e.g. ``info@em.pokemon.com`` ->
         ``info_at_em_pokemon_com_...@icloud.com``) and Gmail's IMAP search is token-based,
         so ``FROM "pokemon"`` never matches the "pokemon" buried inside ``em_pokemon_com``.
         A subject-based query (sender-agnostic) catches those forwarded emails; the
         parser's ``can_parse()`` does the final sender check downstream.
 
-        Query union (in order, deduped):
-          - subject + date                (sender-agnostic — catches forwarded/rewritten)
-          - FROM + date + subject hints   (specific, when the sender filter is reliable)
-          - FROM + date                   (sender matches whose subject we don't recognize)
-        Falls back to a date-only search only if every targeted query is empty.
+        Queries are tried in **priority tiers**; the first tier that returns anything wins
+        (results within a tier are unioned/deduped). Later tiers are only a fallback:
+
+          Tier 1 (when subject_hints given) — narrow, subject-based:
+            - subject + date              (sender-agnostic — catches forwarded/rewritten)
+            - FROM + date + subject hints (specific, when the sender filter is reliable)
+          Tier 2 — sender-only: FROM + date
+          Tier 3 — date only (last resort; can_parse filters by sender later)
+
+        Why tiers instead of one big union: a store's subject hints line up 1:1 with what
+        its parser can actually parse, so Tier 1 already finds every parseable order. The
+        broad ``FROM + date`` query (Tier 2) additionally drags in *all* marketing mail
+        from that sender — hundreds of unparseable emails per week on a large inbox — which
+        is pure fetch overhead and, over a slow link (e.g. AYCD UpLink), causes bulk
+        fetches to time out and silently drop the real orders. Tier 1 keeps the fetch set
+        tiny (only order emails); Tier 2 only kicks in when there are no hints or the
+        subject search matched nothing.
         """
         if not self.imap or not self.connected:
             return []
@@ -153,33 +198,27 @@ class ImapClient(BaseEmailClient):
         end_str = end_date.strftime("%d-%b-%Y")
         date_clause = f'SINCE "{start_str}" BEFORE "{end_str}"'
 
-        targeted = []
+        tiers: List[List[str]] = []
         if subject_hints:
             subject_part = self._build_subject_query(subject_hints)
-            # Sender-agnostic subject search first — the only one that finds forwarded mail.
-            targeted.append(f'({date_clause} {subject_part})')
-            targeted.append(f'(FROM "{sender_filter}" {date_clause} {subject_part})')
-        targeted.append(f'(FROM "{sender_filter}" {date_clause})')
+            tiers.append([
+                f'({date_clause} {subject_part})',
+                f'(FROM "{sender_filter}" {date_clause} {subject_part})',
+            ])
+        tiers.append([f'(FROM "{sender_filter}" {date_clause})'])
+        tiers.append([f'({date_clause})'])
 
-        collected = set()
-        for query in targeted:
-            try:
-                status, messages = self.imap.search(None, query)
-                if status == "OK" and messages and messages[0]:
-                    collected.update(messages[0].decode().split())
-            except Exception:
-                continue
-
-        if collected:
-            return sorted(collected, key=lambda x: int(x) if x.isdigit() else 0)
-
-        # Last resort: date only (parser's can_parse will filter by sender later)
-        try:
-            status, messages = self.imap.search(None, f'({date_clause})')
-            if status == "OK" and messages and messages[0]:
-                return messages[0].decode().split()
-        except Exception:
-            pass
+        for tier in tiers:
+            collected = set()
+            for query in tier:
+                try:
+                    status, messages = self.imap.search(None, query)
+                    if status == "OK" and messages and messages[0]:
+                        collected.update(messages[0].decode().split())
+                except Exception:
+                    continue
+            if collected:
+                return sorted(collected, key=lambda x: int(x) if x.isdigit() else 0)
 
         return []
 
@@ -233,7 +272,10 @@ class ImapClient(BaseEmailClient):
         fetched_count = [0]
 
         def fetch_chunk(chunk_uids: List[str]) -> List[RawEmail]:
-            conn = ImapClient(self.email, self.app_password, self.provider_key)
+            conn = ImapClient(
+                self.email, self.app_password, self.provider_key,
+                host=self.host, port=self.port, use_ssl=self.use_ssl,
+            )
             if not conn.connect():
                 return []
             try:

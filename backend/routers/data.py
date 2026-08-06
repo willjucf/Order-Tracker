@@ -79,6 +79,18 @@ def get_order(order_number: str):
     }
 
 
+@router.delete("/orders/{order_number}")
+def delete_order(order_number: str):
+    """Delete a single order (and its items) by order number.
+
+    Live stats/spending/item-breakdown are computed from the orders+items tables, so they
+    update automatically once the row is gone. Past scan-history snapshots are left as-is.
+    """
+    if not Order.delete(order_number):
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"success": True}
+
+
 @router.get("/history")
 def get_history():
     """Get all scan history."""

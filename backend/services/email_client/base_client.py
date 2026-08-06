@@ -23,6 +23,9 @@ class BaseEmailClient(ABC):
         self.email = email
         self.app_password = app_password
         self.connected = False
+        # Populated by connect() on failure so callers can surface a specific reason
+        # (unreachable server vs. rejected login) instead of a generic message.
+        self.last_error = ""
 
     @abstractmethod
     def connect(self) -> bool:

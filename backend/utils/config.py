@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Application info
 APP_NAME = "Willet's Order Tracker"
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.4.0"
 APP_FULL_NAME = APP_NAME
 
 # GitHub repo for updates
@@ -52,6 +52,19 @@ EMAIL_PROVIDERS = {
         "name": "AOL",
         "imap_server": "imap.aol.com",
         "imap_port": 993,
+        "enabled": True
+    },
+    "aycd": {
+        # AYCD Inbox's built-in IMAP server. It runs locally (Localhost bind) with
+        # TLS off by default and a user-specific port, so host/port are editable in the
+        # UI (custom_connection). Log in with the Unified Inbox account (inbox@aycd.me)
+        # to read mail already synced across every exposed account — ideal for backfilling
+        # order history. The IMAP server password (Settings > IMAP Server) is the password.
+        "name": "AYCD Inbox (IMAP)",
+        "imap_server": "127.0.0.1",
+        "imap_port": 43828,
+        "use_ssl": False,
+        "custom_connection": True,
         "enabled": True
     }
 }

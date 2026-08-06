@@ -19,6 +19,10 @@ class CredentialSaveRequest(BaseModel):
     provider: str
     password: str
     remember: bool = True
+    # Only used by custom_connection providers (e.g. AYCD Inbox's local IMAP server).
+    host: Optional[str] = None
+    port: Optional[int] = None
+    use_ssl: Optional[bool] = None
 
 
 @router.get("", response_model=List[CredentialOut])
@@ -29,17 +33,29 @@ def get_credentials():
 
 
 @router.get("/with-password")
-def get_credentials_with_password():
-    """Get saved credentials with decrypted password (for auto-fill)."""
-    credentials = Credential.get_all()
-    if not credentials:
+def get_credentials_with_password(provider: Optional[str] = None):
+    """Get saved credentials with decrypted password (for auto-fill).
+
+    With no ``provider``, returns the most recently saved credential (used on startup).
+    With a ``provider``, returns that provider's most recent saved credential (or null),
+    so switching the provider dropdown recalls the matching login instead of leaving
+    another provider's values in the fields.
+    """
+    if provider:
+        cred = Credential.get_by_provider(provider)
+    else:
+        credentials = Credential.get_all()
+        cred = credentials[0] if credentials else None
+    if not cred:
         return None
-    cred = credentials[0]
     password = decrypt_password(cred.app_password_encrypted) if cred.app_password_encrypted else ""
     return {
         "email": cred.email,
         "provider": cred.provider,
-        "password": password
+        "password": password,
+        "host": cred.host,
+        "port": cred.port,
+        "use_ssl": cred.use_ssl,
     }
 
 
@@ -50,12 +66,16 @@ def save_credentials(req: CredentialSaveRequest):
         cred = Credential(
             email=req.email,
             provider=req.provider,
-            app_password_encrypted=encrypt_password(req.password)
+            app_password_encrypted=encrypt_password(req.password),
+            host=req.host,
+            port=req.port,
+            use_ssl=req.use_ssl,
         )
         cred.save()
         return {"success": True}
     else:
-        Credential.delete_all()
+        # Forget only this login, not every provider's saved credentials.
+        Credential.delete_by_email(req.email)
         return {"success": True}
 
 

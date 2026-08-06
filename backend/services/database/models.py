@@ -165,6 +165,26 @@ class Order:
         return orders
 
     @classmethod
+    def delete(cls, order_number: str) -> bool:
+        """Delete an order and its items by order number. Returns True if a row was removed.
+
+        Items are removed explicitly rather than relying on ON DELETE CASCADE, since SQLite
+        only enforces foreign keys when PRAGMA foreign_keys is ON (not guaranteed here).
+        All live views (stats, spending, item breakdown) recompute from these tables, so
+        removing the order here makes it disappear everywhere on the next fetch.
+        """
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM orders WHERE order_number = ?", (order_number,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+            order_id = row['id']
+            cursor.execute("DELETE FROM items WHERE order_id = ?", (order_id,))
+            cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+            return True
+
+    @classmethod
     def get_active_orders(cls) -> List['Order']:
         """Get orders that are not cancelled or delivered."""
         orders = []
@@ -197,17 +217,31 @@ class Credential:
     email: str
     provider: str
     app_password_encrypted: bytes = b""
+    host: Optional[str] = None
+    port: Optional[int] = None
+    use_ssl: Optional[bool] = None
     id: Optional[int] = None
 
     def save(self):
         """Save credential to database."""
         with get_db() as conn:
             cursor = conn.cursor()
+            use_ssl_val = None if self.use_ssl is None else int(self.use_ssl)
             cursor.execute("""
-                INSERT OR REPLACE INTO credentials (email, provider, app_password_encrypted)
-                VALUES (?, ?, ?)
-            """, (self.email, self.provider, self.app_password_encrypted))
+                INSERT OR REPLACE INTO credentials (email, provider, app_password_encrypted, host, port, use_ssl)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (self.email, self.provider, self.app_password_encrypted, self.host, self.port, use_ssl_val))
             self.id = cursor.lastrowid
+
+    @staticmethod
+    def _row_val(row, key):
+        """Safely read a column that may not exist on older DB rows."""
+        return row[key] if key in row.keys() else None
+
+    @staticmethod
+    def _to_bool(val):
+        """Convert a stored 0/1/NULL flag back to bool/None."""
+        return None if val is None else bool(val)
 
     @classmethod
     def get_by_email(cls, email: str) -> Optional['Credential']:
@@ -221,7 +255,37 @@ class Credential:
                     id=row['id'],
                     email=row['email'],
                     provider=row['provider'],
-                    app_password_encrypted=row['app_password_encrypted']
+                    app_password_encrypted=row['app_password_encrypted'],
+                    host=cls._row_val(row, 'host'),
+                    port=cls._row_val(row, 'port'),
+                    use_ssl=cls._to_bool(cls._row_val(row, 'use_ssl')),
+                )
+        return None
+
+    @classmethod
+    def get_by_provider(cls, provider: str) -> Optional['Credential']:
+        """Get the most recently saved credential for a given provider (or None).
+
+        Credentials are keyed per-email, so a user can have separate saved logins for
+        Gmail, AYCD, etc. This lets the UI recall the right one when the provider dropdown
+        changes instead of carrying fields across providers.
+        """
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM credentials WHERE provider = ? ORDER BY id DESC LIMIT 1",
+                (provider,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return cls(
+                    id=row['id'],
+                    email=row['email'],
+                    provider=row['provider'],
+                    app_password_encrypted=row['app_password_encrypted'],
+                    host=cls._row_val(row, 'host'),
+                    port=cls._row_val(row, 'port'),
+                    use_ssl=cls._to_bool(cls._row_val(row, 'use_ssl')),
                 )
         return None
 
@@ -242,9 +306,19 @@ class Credential:
                     id=row['id'],
                     email=row['email'],
                     provider=row['provider'],
-                    app_password_encrypted=row['app_password_encrypted']
+                    app_password_encrypted=row['app_password_encrypted'],
+                    host=cls._row_val(row, 'host'),
+                    port=cls._row_val(row, 'port'),
+                    use_ssl=cls._to_bool(cls._row_val(row, 'use_ssl')),
                 ))
         return credentials
+
+    @classmethod
+    def delete_by_email(cls, email: str):
+        """Delete a single saved credential by email (forget just this login)."""
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM credentials WHERE email = ?", (email,))
 
     @classmethod
     def delete_all(cls):

@@ -53,7 +53,14 @@ app.include_router(settings.router)
 def get_providers():
     """Get available email providers."""
     return {
-        key: {"name": config["name"], "enabled": config["enabled"]}
+        key: {
+            "name": config["name"],
+            "enabled": config["enabled"],
+            # custom_connection providers (AYCD Inbox) let the user edit host/port.
+            "custom": config.get("custom_connection", False),
+            "defaultHost": config["imap_server"],
+            "defaultPort": config["imap_port"],
+        }
         for key, config in EMAIL_PROVIDERS.items()
     }
 
